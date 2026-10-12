@@ -277,6 +277,12 @@ new IntersectionObserver((entries) => {
   visible = entries[entries.length - 1].isIntersecting;
   if (visible) run();
 }, { rootMargin: "120px 0px" }).observe(stage);
+// Hover: left to right across the figure runs the decon from shut-down to ready for entry.
+stage.addEventListener("pointermove", (event) => {
+  if (event.pointerType === "touch") return;
+  const box = svg.getBoundingClientRect();
+  steer(((event.clientX - box.left) / box.width - 0.18) / 0.64);
+});
 steps.forEach((button, i) => button.addEventListener("click", () => steer(STEP_AT[i])));
 apartButton.addEventListener("click", () => {
   hold();

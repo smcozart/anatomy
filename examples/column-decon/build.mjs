@@ -272,12 +272,12 @@ const MODEL = readFileSync(join(HERE, "model.mjs"), "utf8").replace(/^export /gm
 const LIVE = readFileSync(join(HERE, "live.js"), "utf8").replace("__DATA__", JSON.stringify(DATA));
 const CSS = readFileSync(join(HERE, "column.css"), "utf8") + trayCss;
 
-const stage = `<div class="iso-stage cd-stage" tabindex="0" role="slider" aria-label="Vapor-phase decontamination of a distillation column. Use the stage buttons or the arrow keys to run it; press A to take the column apart." aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">${svg}<canvas class="cd-gl" aria-hidden="true"></canvas></div>`;
+const stage = `<div class="iso-stage cd-stage" tabindex="0" role="slider" aria-label="Vapor-phase decontamination of a distillation column. Hover across the figure, use the stage buttons or the arrow keys to run it; press A to take the column apart." aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">${svg}<canvas class="cd-gl" aria-hidden="true"></canvas></div>`;
 const controls = `<div class="cd-controls"><div class="cd-steps" role="group" aria-label="Decon stages">${["Shut down, fouled", "Steam in", "Vapor-phase decon", "Final sweep", "Ready for entry"].map((label, i) => `<button type="button" class="cd-step" data-step="${i}"><span class="cd-num">${i + 1}</span>${label}</button>`).join("")}</div><button type="button" class="cd-apart" data-apart aria-pressed="false">Take the column apart</button></div>`;
 const body = k.plateHtml({
   fig: "Fig 2",
   title: "Column decon · vapor phase",
-  hint: "Stages 1–5 · A to take apart",
+  hint: "Hover to run the decon · A to take apart",
   readout: "Shut down · fouled",
   keys: [
     { mark: "lit", label: "Trays and downcomers, the metal being cleaned" },
@@ -290,5 +290,7 @@ const body = k.plateHtml({
 const page = k.pageHtml({ title: "Column decon", theme: THEME, body: `<style>${CSS}</style>${body}`, script: kitScript() + glScript() + MODEL + LIVE, width: 960 });
 const name = THEME === "light" ? "column-decon-light.html" : "column-decon.html";
 writeFileSync(join(HERE, name), page);
+
+
 console.log("wrote", name, `${(page.length / 1024).toFixed(0)} KB`, `${REC.items.length} items`);
 A.auditOrExit(REC, P, { allow: [["stand.suction.flange", "stand.suction:0"]] });
