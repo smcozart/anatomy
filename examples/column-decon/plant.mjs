@@ -430,7 +430,7 @@ export function plant(ctx) {
   }
   // steam inlet low on the bottom section, and the braided hose to it
   const SA = VIEW_A + 64 * DEG;
-  const inlet = shellNozzle("c1", 68, SA, 4.2, 8, { flangeR: 9.6 / 4.2, thick: 2.4, name: "c1.steam-inlet" });
+  const inlet = shellNozzle("c1", 68, SA, 4.2, 8, { flangeR: 9.6, thick: 2.4, name: "c1.steam-inlet" });
   piece("stand");
   {
     const F = G.frameOf(inlet.port, inlet.n, tangent(SA), [0, 0, 1]);

@@ -203,8 +203,8 @@ function draw(s) {
   drumLiquid.setAttribute("height", dh.toFixed(2));
   for (let j = 0; j < DATA.trays; j++) svg.style.setProperty(`--t${j}`, s.trays[j].toFixed(3));
   hazes.forEach((h) => (h.style.opacity = (0.3 * steam.x).toFixed(3)));
-  covers.forEach((cover, i) => {
-    const [ux, uy] = DATA.covers[i];
+  covers.forEach((cover) => {
+    const [ux, uy] = DATA.covers[cover.dataset.cover];
     const d = 9 * s.open;
     cover.setAttribute("transform", d ? `translate(${(ux * d).toFixed(2)} ${(uy * d).toFixed(2)})` : "");
   });

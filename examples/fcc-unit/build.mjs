@@ -21,7 +21,7 @@ const AZIMUTH = 48;
 const ELEVATION = 26;
 
 // World: z up, about 1 unit per 60 mm. The column stands at the origin.
-const PAD = { x: -430, y: -200, w: 628, d: 380, r: 4 };
+const PAD = { x: -466, y: -204, w: 664, d: 376, r: 4 };
 const PAD_H = 9;
 const R = 36; // column shell, outside
 const RI = 34.6; // inside
@@ -252,6 +252,21 @@ const items = REC.items.map((item, i) => {
 
 const CAPTION =
   "A fluid catalytic cracking unit taken down for turnaround and decontaminated in place by the vapor-phase method. While it runs, catalyst circulates between the reactor and the regenerator, whose fluidized bed burns off coke at about 690 °C. At shutdown the feed comes out, the bed cools and the catalyst is withdrawn. The cleaning skid then puts steam and chemistry in at the riser: the vapor works through the reactor and its cyclones, along the vapor line and up the main fractionator tray by tray, and leaves by the overhead to the air-cooled condenser and reflux drum, a closed loop with nothing steamed to atmosphere. The gas board tests the column against entry limits (0% LEL, H₂S under 1 ppm, benzene under 0.5 ppm), and when all three pass the manways open. The scoreboard compares the decon clock with a conventional steam-out, water wash and re-test. Deposit, gas readings and hours come from one illustrative model, not a job record; the gap between the two clocks is sized to the 104 hours RTI reported saving on one coking-unit shutdown.";
+// Parts standing in front of a converter window are drawn again above the shader canvas,
+// clipped to that window, so the glow and steam stay behind them.
+const frontLayers = CONV.windows.map((w, wi) => {
+  const host = REC.items.find((item) => item.name === w.name);
+  const xs = w.ring.map((q) => q[0]);
+  const ys = w.ring.map((q) => q[1]);
+  const box = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+  const hits = REC.items.filter((item) => item.key > host.key && item.move.every((v) => v === 0) && (() => {
+    const b = A.markupBox(item.svg);
+    return b && b[0] < box[2] && b[2] > box[0] && b[1] < box[3] && b[3] > box[1];
+  })());
+  const rename = (svgText) => svgText.replace(/id="([^"]+)"/g, `id="$1-f${wi}"`).replace(/url\(#([^)]+)\)/g, `url(#$1-f${wi})`);
+  return `<clipPath id="fc-front${wi}"><path d="${k.pathOf(w.ring, true)}"/></clipPath><g clip-path="url(#fc-front${wi})">${hits.map((item) => rename(item.svg)).join("")}</g>`;
+});
+const frontSvg = `<svg xmlns="http://www.w3.org/2000/svg" class="iso-svg fc-front" viewBox="0 0 ${W} ${H}" aria-hidden="true">${frontLayers.join("")}</svg>`;
 const LABEL = "A fluid catalytic cracking unit: a regenerator cut open to show its catalyst bed and cyclones, a reactor on its structure cut open to show its riser termination and cyclones, the riser, the two catalyst standpipes with slide valves, the air blower and flue-gas stack, and the vapor line to a main fractionator cut open in three flanged sections to show sixteen valve trays, with its overhead to an air-cooled condenser, a reflux drum and pump, a vapor-phase cleaning skid at the riser and a gas board.";
 const svg = k.figureSvg({ width: W, height: H, label: LABEL, body: [...back, `<g class="cd-items">${items.join("")}</g>`] });
 const unit = (v) => {
@@ -284,7 +299,7 @@ const MODEL = readFileSync(join(HERE, "model.mjs"), "utf8").replace(/^export /gm
 const LIVE = readFileSync(join(HERE, "live.js"), "utf8").replace("__DATA__", JSON.stringify(DATA));
 const CSS = readFileSync(join(HERE, "column.css"), "utf8") + trayCss;
 
-const stage = `<div class="iso-stage cd-stage" tabindex="0" role="slider" aria-label="Vapor-phase decontamination of a distillation column. Hover across the figure, use the stage buttons or the arrow keys to run it; press A to take the column apart." aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">${svg}<canvas class="cd-gl" aria-hidden="true"></canvas></div>`;
+const stage = `<div class="iso-stage cd-stage" tabindex="0" role="slider" aria-label="Vapor-phase decontamination of a distillation column. Hover across the figure, use the stage buttons or the arrow keys to run it; press A to take the column apart." aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">${svg}<canvas class="cd-gl" aria-hidden="true"></canvas>${frontSvg}</div>`;
 const controls = `<div class="cd-controls"><div class="cd-steps" role="group" aria-label="Turnaround stages">${M.STEPS.map((label, i) => `<button type="button" class="cd-step" data-step="${i}"><span class="cd-num">${i + 1}</span>${label}</button>`).join("")}</div><button type="button" class="cd-apart" data-apart aria-pressed="false">Take the column apart</button></div>`;
 const body = k.plateHtml({
   fig: "Fig 3",
@@ -305,4 +320,4 @@ writeFileSync(join(HERE, name), page);
 
 
 console.log("wrote", name, `${(page.length / 1024).toFixed(0)} KB`, `${REC.items.length} items`);
-A.auditOrExit(REC, P, { allow: [["stand.suction.flange", "stand.suction:0"]] });
+A.auditOrExit(REC, P, { allow: [["stand.suction.flange", "stand.suction:0"]], crowd: [["stand.flue", "stand.stack"]] });

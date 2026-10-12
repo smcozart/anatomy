@@ -3,7 +3,7 @@
 // flue-gas line and stack, the main air blower, and the big reactor vapor line.
 export function converter(ctx, from) {
   const { k, G, A, P, V, at, S, Ln, Dots, path, FADE, record, nameFor, piece, put, tubeItems, discAt, flangeAt, boxAt, ballAt, plateAt, pipe, gateValve, DEG, VIEW_A } = ctx;
-  const live = { covers: [] };
+  const live = { covers: [], windows: [] };
   piece("stand");
   const RG = { c: [-300, -30], r: 46, ri: 44.6, z0: 30, z1: 226, hd: 23 };
   const RX = { c: [-190, 40], r: 28, ri: 26.6, z0: 240, z1: 330, hd: 14 };
@@ -115,6 +115,7 @@ export function converter(ctx, from) {
     const win = [52, 196];
     const shellHost = host(RGF, RG.z0, RG.z1, RG.r, "stand.regen-shell");
     const cuts = [RG.z0, win[0] - 2, win[1] + 2, RG.z1];
+    const skip = [[200, 202], [214, 216]];
     for (let b = 0; b < 3; b++) {
       const id = nameFor("stand.regen-shell");
       let extra = "";
@@ -130,17 +131,29 @@ export function converter(ctx, from) {
         live.regenWin = { c: RG.c, r: RG.r, ri: RG.ri, z: win };
       }
       const [z0, z1] = [cuts[b], cuts[b + 1]];
-      put([RG.c[0], RG.c[1], (z0 + z1) / 2], S(G.disc(z0, z1, RG.r, RGF, P, { rims: "none" }), { tone: "hi", inner: b === 0 ? Ln(G.arcOf(RGF, RG.z0, RG.r, P), { tone: "faint" }) : "" }) + extra, { name: id, shapes: [record(A.disc(RGF, z0, z1, RG.r, { name: id }))] });
+      if (b === 1) live.windows.push({ name: id, ring: windowRing(RG.c, RG.ri, win).map((q) => at(q)) });
+      const parts = b === 2 ? [[z0, skip[0][0]], [skip[0][1], skip[1][0]], [skip[1][1], z1]] : [[z0, z1]];
+      parts.forEach(([a0, a1], pi) => {
+        const pid = pi ? nameFor("stand.regen-shell") : id;
+        put([RG.c[0], RG.c[1], (a0 + a1) / 2], S(G.disc(a0, a1, RG.r, RGF, P, { rims: "none" }), { tone: "hi", inner: b === 0 ? Ln(G.arcOf(RGF, RG.z0, RG.r, P), { tone: "faint" }) : "" }) + (pi ? "" : extra), { name: pid, shapes: [record(A.disc(RGF, a0, a1, RG.r, { name: pid }))] });
+      });
     }
     const prof = headProfile(RG.z1, RG.r, RG.hd, 1);
-    ctx.turned(RGF, prof, { tone: "hi" }, { name: "stand.regen-head", smooth: { slope: headSlope(RG.z1, RG.r, RG.hd, 1), radius: headRadius(RG.z1, RG.r, RG.hd, 1) }, inner: Ln(G.arcOf(RGF, RG.z1, RG.r, P), { tone: "faint" }) });
+    live.regenHead = ctx.turned(RGF, prof, { tone: "hi" }, { name: "stand.regen-head", smooth: { slope: headSlope(RG.z1, RG.r, RG.hd, 1), radius: headRadius(RG.z1, RG.r, RG.hd, 1) }, inner: Ln(G.arcOf(RGF, RG.z1, RG.r, P), { tone: "faint" }) });
     // refractory bands and a ring of shell bolts are hidden; the shell gets stiffener rings
-    for (const z of [200, 214]) discAt(RGF, z, z + 2, RG.r + 1.6, { tone: "mid" }, { name: "stand.regen-stiffener" });
+    for (const z of [200, 214]) {
+      const id = nameFor("stand.regen-stiffener");
+      put([RG.c[0], RG.c[1], z + 1], S(G.ringBand(z, z + 2, RG.r, RG.r + 1.6, RGF, P), { tone: "mid" }), { name: id, shapes: [record(A.ring(RGF, z, z + 2, RG.r, RG.r + 1.6, { name: id }))] });
+    }
     manway(RG.c, RG.r, 72, VIEW_A + 70 * DEG, shellHost, "stand.regen-manway");
     // flue gas from the crown to the stack
     const crown = RG.z1 + RG.hd;
     const atCrown = (rho) => RG.z1 + RG.hd * Math.sqrt(Math.max(0, 1 - (rho / RG.r) ** 2));
-    discAt(RGF, atCrown(10.4) - 0.05, crown + 8, 10, { tone: "hi" }, { name: "stand.regen-flue-neck", rims: "last" });
+    {
+      const id = nameFor("stand.regen-flue-neck");
+      const s0 = atCrown(10) - 0.05;
+      put([RG.c[0], RG.c[1], (s0 + crown + 8) / 2], S(G.disc(s0, crown + 8, 10, RGF, P, { rims: "last" }), { tone: "hi" }), { name: id, shapes: [record(A.disc(RGF, s0, crown + 8, 10, { name: id, seated: true, cut: [live.regenHead] }))] });
+    }
     flangeAt([RG.c[0], RG.c[1], crown + 9.3], [0, 0, 1], 16, 2.6, { name: "stand.regen-flue-flange" });
     const STACK = { c: [RG.c[0], RG.c[1] - 140], r: 13, h: 420 };
     const SF = frameAt(STACK.c);
@@ -149,11 +162,11 @@ export function converter(ctx, from) {
     const stackHost = host(SF, 3, STACK.h, STACK.r, "stand.stack");
     discAt(SF, 3, STACK.h, STACK.r, { tone: "hi" }, { name: "stand.stack", inner: Ln([80, 160, 240, 320, 400].map((z) => G.arcOf(SF, z, STACK.r, P)).join(""), { tone: "faint" }) });
     discAt(SF, STACK.h, STACK.h + 3, STACK.r + 1.6, { tone: "mid" }, { name: "stand.stack-lip" });
-    const sn = nozzle(STACK.c, STACK.r, sz, Math.PI / 2, 8, 6, { flangeR: 2, thick: 2.6, name: "stand.stack-inlet", hostShape: stackHost });
+    const sn = nozzle(STACK.c, STACK.r, sz, Math.PI / 2, 8, 6, { flangeR: 16, thick: 2.6, name: "stand.stack-inlet", hostShape: stackHost });
     pipe([[RG.c[0], RG.c[1], crown + 10.6], [RG.c[0], RG.c[1], sz], sn.port], 8, { name: "stand.flue", bend: 2.4, flangeR: 2 });
     // air from the main air blower into the bottom
     const airA = VIEW_A + 115 * DEG;
-    const air = nozzle(RG.c, RG.r, 40, airA, 7, 7, { flangeR: 1.8, thick: 2.2, name: "stand.regen-air", hostShape: shellHost });
+    const air = nozzle(RG.c, RG.r, 40, airA, 7, 7, { flangeR: 12.6, thick: 2.2, name: "stand.regen-air", hostShape: shellHost });
     const BL = { x: RG.c[0] - 120, y: RG.c[1] + 70 };
     const BLF = G.frameOf([0, BL.y, 22], [1, 0, 0], [0, 1, 0], [0, 0, 1]);
     boxAt({ x: BL.x - 30, y: BL.y - 16, w: 70, d: 32, r: 1 }, 0, 4, { tone: "lo" }, { name: "stand.blower-plinth", bevel: 0.5 });
@@ -175,14 +188,14 @@ export function converter(ctx, from) {
   }
 
   // ------------------------------------------------------------ reactor structure, reactor, stripper, riser
-  const half = 33;
+  const half = 40;
   const COLS = [[-half, -half], [half, -half], [-half, half], [half, half]].map(([dx, dy]) => [RX.c[0] + dx, RX.c[1] + dy]);
   const BEAM_Z = 236;
   for (const [x, y] of COLS) {
     boxAt({ x: x - 6, y: y - 6, w: 12, d: 12, r: 0.6 }, 0, 2.4, { tone: "lo" }, { name: "stand.rx-footing", bevel: 0.3 });
     boxAt({ x: x - 3, y: y - 3, w: 6, d: 6, r: 0.3 }, 2.4, BEAM_Z - 2.4, { tone: "mid" }, { name: "stand.rx-column", bevel: 0.3 });
   }
-  for (const z of [120, BEAM_Z]) {
+  for (const z of [196, BEAM_Z]) {
     const h = z === BEAM_Z ? 6 : 3;
     boxAt({ x: RX.c[0] - half + 3, y: RX.c[1] - half - 2.5, w: 2 * half - 6, d: 5, r: 0.3 }, z, h, { tone: "mid" }, { name: "stand.rx-beam", bevel: 0.3 });
     boxAt({ x: RX.c[0] - half + 3, y: RX.c[1] + half - 2.5, w: 2 * half - 6, d: 5, r: 0.3 }, z, h, { tone: "mid" }, { name: "stand.rx-beam", bevel: 0.3 });
@@ -191,7 +204,10 @@ export function converter(ctx, from) {
   }
   const TOP = BEAM_Z + 6;
   // support ring welded to the reactor, resting on the top beams
-  discAt(RXF, TOP, TOP + 4, half + 2.5, { tone: "mid" }, { name: "stand.rx-support-ring" });
+  {
+    const id = nameFor("stand.rx-support-ring");
+    put([RX.c[0], RX.c[1], TOP + 2], S(G.ringBand(TOP, TOP + 4, RX.r, half + 2.5, RXF, P), { tone: "mid" }), { name: id, shapes: [record(A.ring(RXF, TOP, TOP + 4, RX.r, half + 2.5, { name: id }))] });
+  }
   const RZ0 = TOP + 4;
   // reactor shell with a window onto the riser termination and cyclones
   const rxWin = [RZ0 + 10, RX.z1 - 6];
@@ -211,14 +227,15 @@ export function converter(ctx, from) {
         live.rxWin = { c: RX.c, r: RX.r, ri: RX.ri, z: rxWin };
       }
       const [z0, z1] = [cuts[b], cuts[b + 1]];
+      if (b === 1) live.windows.push({ name: id, ring: windowRing(RX.c, RX.ri, rxWin).map((q) => at(q)) });
       put([RX.c[0], RX.c[1], (z0 + z1) / 2], S(G.disc(z0, z1, RX.r, RXF, P, { rims: b === 0 ? "first" : "none" }), { tone: "hi" }) + extra, { name: id, shapes: [record(A.disc(RXF, z0, z1, RX.r, { name: id }))] });
     }
     const prof = headProfile(RX.z1, RX.r, RX.hd, 1);
-    ctx.turned(RXF, prof, { tone: "hi" }, { name: "stand.rx-head", smooth: { slope: headSlope(RX.z1, RX.r, RX.hd, 1), radius: headRadius(RX.z1, RX.r, RX.hd, 1) }, inner: Ln(G.arcOf(RXF, RX.z1, RX.r, P), { tone: "faint" }) });
+    live.rxHead = ctx.turned(RXF, prof, { tone: "hi" }, { name: "stand.rx-head", smooth: { slope: headSlope(RX.z1, RX.r, RX.hd, 1), radius: headRadius(RX.z1, RX.r, RX.hd, 1) }, inner: Ln(G.arcOf(RXF, RX.z1, RX.r, P), { tone: "faint" }) });
   }
   // cone under the shell down to the stripper, the stripper, and its bottom cone to the riser
   {
-    const cone = [[ST.z1, ST.r], [RZ0, RX.r]];
+    const cone = [[ST.z1, ST.r], [TOP, RX.r]];
     ctx.turned(RXF, [[ST.z1, ST.r], ...cone.slice(1)], { tone: "hi" }, { name: "stand.rx-cone" });
     discAt(RXF, ST.z0, ST.z1, ST.r, { tone: "hi" }, { name: "stand.stripper", rims: "none", inner: Ln(G.arcOf(RXF, ST.z0 + 30, ST.r, P), { tone: "faint" }) });
     ctx.turned(RXF, [[ST.z0 - 12, RISER_R + 0.6], [ST.z0, ST.r]], { tone: "hi" }, { name: "stand.stripper-cone" });
@@ -227,10 +244,21 @@ export function converter(ctx, from) {
   // riser from the wye to the stripper bottom, with expansion bands
   const WYE = [RX.c[0], RX.c[1], BALL.z];
   ballAt(WYE, BALL.r, { tone: "hi", name: "stand.wye" });
+  const WYE_SHAPE = { ...A.ball(WYE, BALL.r, { name: "stand.wye" }), piece: "stand", move: [0, 0, 0] };
   boxAt({ x: WYE[0] - 6, y: WYE[1] - 6, w: 12, d: 12, r: 0.6 }, 0, BALL.z - BALL.r + 0.1, { tone: "lo" }, { name: "stand.wye-pedestal", bevel: 0.3 });
   const riserFrom = BALL.z + Math.sqrt(BALL.r ** 2 - RISER_R ** 2);
-  discAt(RXF, riserFrom, ST.z0 - 12, RISER_R, { tone: "hi" }, { name: "stand.riser", rims: "none", inner: Ln([60, 100].map((z) => G.arcOf(RXF, z, RISER_R, P)).join(""), { tone: "faint" }) });
-  for (const z of [70, 110]) discAt(RXF, z - 1, z + 1, RISER_R + 1.4, { tone: "mid" }, { name: "stand.riser-band" });
+  {
+    const id = nameFor("stand.riser");
+    const s0 = riserFrom - 0.05;
+    [[s0, 69], [71, 109], [111, ST.z0 - 12]].forEach(([a0, a1], i) => {
+      const pid = i ? nameFor("stand.riser") : id;
+      put([RX.c[0], RX.c[1], (a0 + a1) / 2], S(G.disc(a0, a1, RISER_R, RXF, P, { rims: "none" }), { tone: "hi" }), { name: pid, shapes: [record(A.disc(RXF, a0, a1, RISER_R, i ? { name: pid } : { name: pid, seated: true, cut: [WYE_SHAPE] }))] });
+    });
+  }
+  for (const z of [70, 110]) {
+    const id = nameFor("stand.riser-band");
+    put([RX.c[0], RX.c[1], z], S(G.ringBand(z - 1, z + 1, RISER_R, RISER_R + 1.4, RXF, P), { tone: "mid" }), { name: id, shapes: [record(A.ring(RXF, z - 1, z + 1, RISER_R, RISER_R + 1.4, { name: id }))] });
+  }
   // lift-steam nozzle on the wye, toward the cleaning skid
   const liftA = Math.atan2(from.union[1] - WYE[1], from.union[0] - WYE[0]);
   const lift = (() => {
@@ -238,7 +266,7 @@ export function converter(ctx, from) {
     const F = G.frameOf(WYE, n, tangent(liftA), [0, 0, 1]);
     const r = 3.4;
     const s0 = Math.sqrt(BALL.r ** 2 - r ** 2);
-    discAt(F, s0, BALL.r + 6, r, { tone: "hi" }, { name: "stand.lift-steam" });
+    put(G.add3(WYE, G.mul3(n, (s0 + BALL.r + 6) / 2)), S(G.disc(s0, BALL.r + 6, r, F, P), { tone: "hi" }), { name: "stand.lift-steam", shapes: [record(A.disc(F, s0, BALL.r + 6, r, { name: "stand.lift-steam", seated: true, cut: [WYE_SHAPE] }))] });
     flangeAt(G.add3(WYE, G.mul3(n, BALL.r + 7)), n, 7, 2, { name: "stand.lift-steam-flange" });
     return { port: G.add3(WYE, G.mul3(n, BALL.r + 8)), n };
   })();
@@ -268,24 +296,27 @@ export function converter(ctx, from) {
   const standR = 5;
   // regenerated catalyst: regenerator bottom to the wye
   {
-    const a = angTo - 8 * DEG;
-    const noz = nozzle(RG.c, RG.r, 96, a, standR, 7, { flangeR: 1.9, thick: 2.2, name: "stand.regen-cat-out", hostShape: live.regenHost });
+    const a = angTo + 7 * DEG;
+    const noz = nozzle(RG.c, RG.r, 96, a, standR, 7, { flangeR: 9.5, thick: 2.2, name: "stand.regen-cat-out", hostShape: live.regenHost });
     const knee = G.add3(noz.port, G.mul3(noz.n, 10));
-    const u = G.unit3(G.sub3(knee, WYE));
+    const back = G.unit3([knee[0] - WYE[0], knee[1] - WYE[1], 0]);
+    const low = [WYE[0] + back[0] * 24, WYE[1] + back[1] * 24, BALL.z + 6];
+    const u = G.unit3(G.sub3(low, WYE));
     const end = G.add3(WYE, G.mul3(u, Math.sqrt(BALL.r ** 2 - standR ** 2)));
-    const control = [noz.port, knee, end];
+    const control = [noz.port, knee, low, end];
     const line = G.fillet(control, standR * 2.6, 12, { P, tube: standR });
     const total = G.pathLength(line);
-    const valve = [total * 0.55 - standR * 1.4, total * 0.55 + standR * 1.4];
+    const at45 = total * 0.13;
+    const valve = [at45 - standR * 1.4, at45 + standR * 1.4];
     const l2 = pipe(control, standR, { name: "stand.regen-standpipe", bend: 2.6, flanges: [true, false], flangeR: 1.9, gaps: [valve], caps: [true, false] });
-    slideValve(l2, total * 0.55, standR, "stand.regen-slide-valve");
+    slideValve(l2, at45, standR, "stand.regen-slide-valve");
   }
   // spent catalyst: stripper side down into the regenerator
   {
-    const a = angTo + 180 * DEG + 6 * DEG;
-    const sNoz = nozzle(RX.c, ST.r, 176, a, standR, 6, { flangeR: 1.9, thick: 2.2, name: "stand.stripper-cat-out", hostShape: host(RXF, ST.z0, ST.z1, ST.r, "stand.stripper") });
-    const rA = angTo + 10 * DEG;
-    const rNoz = nozzle(RG.c, RG.r, 122, rA, standR, 6, { flangeR: 1.9, thick: 2.2, name: "stand.regen-cat-in", hostShape: live.regenHost });
+    const a = angTo + 180 * DEG + 14 * DEG;
+    const sNoz = nozzle(RX.c, ST.r, 176, a, standR, 6, { flangeR: 9.5, thick: 2.2, name: "stand.stripper-cat-out", hostShape: host(RXF, ST.z0, ST.z1, ST.r, "stand.stripper") });
+    const rA = angTo + 16 * DEG;
+    const rNoz = nozzle(RG.c, RG.r, 122, rA, standR, 6, { flangeR: 9.5, thick: 2.2, name: "stand.regen-cat-in", hostShape: live.regenHost });
     const control = [sNoz.port, G.add3(sNoz.port, G.mul3(sNoz.n, 9)), G.add3(rNoz.port, G.mul3(rNoz.n, 9)), rNoz.port];
     const line = G.fillet(control, standR * 2.6, 12, { P, tube: standR });
     const total = G.pathLength(line);
@@ -298,7 +329,11 @@ export function converter(ctx, from) {
   {
     const crown = RX.z1 + RX.hd;
     const atCrown = (rho) => RX.z1 + RX.hd * Math.sqrt(Math.max(0, 1 - (rho / RX.r) ** 2));
-    discAt(RXF, atCrown(9.4) - 0.05, crown + 8, 9, { tone: "hi" }, { name: "stand.rx-vapor-neck", rims: "last" });
+    {
+      const id = nameFor("stand.rx-vapor-neck");
+      const s0 = atCrown(9) - 0.05;
+      put([RX.c[0], RX.c[1], (s0 + crown + 8) / 2], S(G.disc(s0, crown + 8, 9, RXF, P, { rims: "last" }), { tone: "hi" }), { name: id, shapes: [record(A.disc(RXF, s0, crown + 8, 9, { name: id, seated: true, cut: [live.rxHead] }))] });
+    }
     flangeAt([RX.c[0], RX.c[1], crown + 9.3], [0, 0, 1], 15, 2.6, { name: "stand.rx-vapor-flange" });
     const inlet = from.vaporInlet;
     const away = G.add3(inlet.port, G.mul3(inlet.n, 44));

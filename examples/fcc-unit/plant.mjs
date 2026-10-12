@@ -293,7 +293,7 @@ export function plant(ctx) {
   // ------------------------------------------------------------ reactor vapor inlet low on the bottom section
   {
     const VA = 170 * DEG;
-    const noz = shellNozzle("c1", 104, VA, 9, 9, { flangeR: 15 / 9, thick: 2.6, name: "c1.vapor-inlet" });
+    const noz = shellNozzle("c1", 122, VA, 9, 9, { flangeR: 15, thick: 2.6, name: "c1.vapor-inlet" });
     live.vaporInlet = noz;
   }
   piece("stand");
@@ -400,7 +400,7 @@ export function plant(ctx) {
     put([UNION_X, HY, UNION_Z + 1.8], S(G.disc(0, 3.6, MR * 1.7, UF, P, { bevel: 0.3 }), { tone: "hi" }) + k.fadedSvg(G.ribsOf(UF, 0, 3.6, MR * 1.7, 6, P, { fade: [0.1, 0.5] }), { tone: "mid" }), { name: "stand.union", shapes: [record(A.disc(UF, 0, 3.6, MR * 1.7, { name: "stand.union" }))] });
   }
   // the column's own steam connection stays blinded: the steam comes in at the riser
-  shellNozzle("c1", 68, VIEW_A + 64 * DEG, 4.2, 8, { flangeR: 9.6 / 4.2, thick: 2.4, name: "c1.steam-inlet", blind: true });
+  shellNozzle("c1", 68, VIEW_A + 64 * DEG, 4.2, 8, { flangeR: 9.6, thick: 2.4, name: "c1.steam-inlet", blind: true });
   piece("stand");
   live.union = [UNION_X, HY, UNION_Z + 3.6];
 
